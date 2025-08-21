@@ -1,0 +1,73 @@
+import sys
+
+OPNAME = {
+    0:  "CMOV",   # Conditional Move
+    1:  "AIDX",   # Array Index
+    2:  "AUPD",   # Array Update
+    3:  "ADD",
+    4:  "MUL",
+    5:  "DIV",
+    6:  "NAND",
+    7:  "HALT",
+    8:  "ALLOC",
+    9:  "FREE",
+    10: "OUT",
+    11: "IN",
+    12: "LOADP",  # Load Program
+    13: "IMMED"   # Load Immediate
+}
+
+def decode(word: int) -> str:
+    """Turn a 32-bit instruction word into a human-readable string."""
+    opcode = word >> 28
+    if opcode == 13:
+        # Special format: [31:28]=opcode, [27:25]=A, [24:0]=value
+        A = (word >> 25) & 0b111
+        value = word & 0x1FFFFFF
+        return f"{OPNAME[opcode]} r{A}, #{value}"
+    else:
+        # Standard format: [31:28]=opcode, [8:6]=A, [5:3]=B, [2:0]=C
+        A = (word >> 6) & 0b111
+        B = (word >> 3) & 0b111
+        C = word & 0b111
+
+        if opcode == 0:
+            return f"{OPNAME[opcode]} r{A}, r{B}, r{C}   ; if r{C}!=0 then r{A}=r{B}"
+        elif opcode == 1:
+            return f"{OPNAME[opcode]} r{A}, [r{B}][r{C}] ; r{A}=mem[r{B}][r{C}]"
+        elif opcode == 2:
+            return f"{OPNAME[opcode]} [r{A}][r{B}], r{C} ; mem[r{A}][r{B}]=r{C}"
+        elif opcode in (3, 4, 5, 6):
+            return f"{OPNAME[opcode]} r{A}, r{B}, r{C}"
+        elif opcode == 7:
+            return f"{OPNAME[opcode]}"
+        elif opcode == 8:
+            return f"{OPNAME[opcode]} r{B}, r{C}        ; new zeroed array of r{C} words -> id in r{B}"
+        elif opcode == 9:
+            return f"{OPNAME[opcode]} r{C}              ; free array id in r{C}"
+        elif opcode == 10:
+            return f"{OPNAME[opcode]} r{C}              ; print byte in r{C}"
+        elif opcode == 11:
+            return f"{OPNAME[opcode]} r{C}              ; read byte -> r{C} (or all-1s on EOF)"
+        elif opcode == 12:
+            return f"{OPNAME[opcode]} r{B}, r{C}        ; duplicate mem[r{B}] -> prog, jump to offset r{C}"
+        else:
+            return f"OP{opcode} r{A}, r{B}, r{C}"
+
+if len(sys.argv) < 2:
+    print(f"Usage: python {sys.argv[0]} <filename.um>")
+    sys.exit(1)
+
+filename = sys.argv[1]
+
+with open(filename, "rb") as f:
+    data = f.read()
+
+if len(data) % 4 != 0:
+    print("Warning: file size is not a multiple of 4; trailing bytes will be ignored.")
+
+for i in range(0, len(data) - (len(data) % 4), 4):
+    word = int.from_bytes(data[i:i+4], byteorder="big")
+    human = decode(word)
+    print(f"Instruction {i//4:03d}: 0x{word:08X}  (decimal {word})  ->  {human}")
+
