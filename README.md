@@ -1,7 +1,6 @@
 # UM Emulator - Warmup Exercise 1
 
 **Name:** Yue Hu  
-**ID:** 102041864  
 **Date:** 2025-08-20  
 
 ---
